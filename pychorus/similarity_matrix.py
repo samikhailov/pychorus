@@ -2,6 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from math import sqrt
+from typing import Any
 
 import numpy as np
 import scipy.signal
@@ -13,16 +14,16 @@ class SimilarityMatrix(metaclass=ABCMeta):
     """Abstract class for time-time and time-lag similarity matrices.
 
     Args:
-        chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+        chroma (np.ndarray[Any, Any]): 12 x n numpy array of musical notes present at every time step.
         sample_rate (float): Sample rate of the audio, almost always 22050.
 
     """
 
-    def __init__(self, chroma: np.ndarray, sample_rate: float) -> None:
+    def __init__(self, chroma: np.ndarray[Any, Any], sample_rate: float) -> None:
         """Initialize the similarity matrix.
 
         Args:
-            chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+            chroma (np.ndarray[Any, Any]): 12 x n numpy array of musical notes present at every time step.
             sample_rate (float): Sample rate of the audio, almost always 22050.
 
         """
@@ -30,14 +31,14 @@ class SimilarityMatrix(metaclass=ABCMeta):
         self.matrix = self.compute_similarity_matrix(chroma)
 
     @abstractmethod
-    def compute_similarity_matrix(self, chroma: np.ndarray) -> np.ndarray:
+    def compute_similarity_matrix(self, chroma: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute the specific type of similarity matrix.
 
         Args:
-            chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+            chroma (np.ndarray[Any, Any]): 12 x n numpy array of musical notes present at every time step.
 
         Returns:
-            np.ndarray: The computed similarity matrix.
+            np.ndarray[Any, Any]: The computed similarity matrix.
 
         """
 
@@ -58,14 +59,14 @@ class TimeTimeSimilarityMatrix(SimilarityMatrix):
 
     """
 
-    def compute_similarity_matrix(self, chroma: np.ndarray) -> np.ndarray:
+    def compute_similarity_matrix(self, chroma: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute the time-time similarity matrix using numpy broadcasting.
 
         Args:
-            chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+            chroma (np.ndarray[Any, Any]): 12 x n numpy array of musical notes present at every time step.
 
         Returns:
-            np.ndarray: The computed time-time similarity matrix.
+            np.ndarray[Any, Any]: The computed time-time similarity matrix.
 
         """
         broadcast_x = np.expand_dims(chroma, 2)  # (12 x n x 1)
@@ -78,14 +79,14 @@ class TimeLagSimilarityMatrix(SimilarityMatrix, metaclass=ABCMeta):
     the similarity of song frames x and (x-y).
     """
 
-    def compute_similarity_matrix(self, chroma: np.ndarray) -> np.ndarray:
+    def compute_similarity_matrix(self, chroma: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute the time-lag similarity matrix.
 
         Args:
-            chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+            chroma (np.ndarray[Any, Any]): 12 x n numpy array of musical notes present at every time step.
 
         Returns:
-            np.ndarray: The computed time-lag similarity matrix.
+            np.ndarray[Any, Any]: The computed time-lag similarity matrix.
 
         """
         num_samples = chroma.shape[1]
@@ -98,14 +99,14 @@ class TimeLagSimilarityMatrix(SimilarityMatrix, metaclass=ABCMeta):
         time_lag_similarity = np.rot90(time_lag_similarity, k=1, axes=(0, 1))
         return time_lag_similarity[:num_samples, :num_samples]
 
-    def denoise(self, time_time_matrix: np.ndarray, smoothing_size: int) -> None:
+    def denoise(self, time_time_matrix: np.ndarray[Any, Any], smoothing_size: int) -> None:
         """Emphasize horizontal lines by suppressing vertical and diagonal lines.
 
         Looks at 6 moving averages (left, right, up, down, upper diagonal, lower diagonal).
         For lines, the left or right average should be much greater than the other ones.
 
         Args:
-            time_time_matrix (np.ndarray): n x n numpy array to quickly compute diagonal averages.
+            time_time_matrix (np.ndarray[Any, Any]): n x n numpy array to quickly compute diagonal averages.
             smoothing_size (int): Smoothing size in samples (usually 1-2 sec is good).
 
         """

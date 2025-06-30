@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional, Union
 
 import librosa
 import numpy as np
 import scipy.signal
-import soundfile as sf
 
 from pychorus.constants import (
     LINE_THRESHOLD,
@@ -20,14 +19,14 @@ from pychorus.constants import (
 from pychorus.similarity_matrix import Line, TimeLagSimilarityMatrix, TimeTimeSimilarityMatrix
 
 
-def local_maxima_rows(denoised_time_lag: np.ndarray) -> np.ndarray:
+def local_maxima_rows(denoised_time_lag: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Find rows whose normalized sum is a local maxima.
 
     Args:
-        denoised_time_lag (np.ndarray): Denoised time-lag similarity matrix.
+        denoised_time_lag (np.ndarray[Any, Any]): Denoised time-lag similarity matrix.
 
     Returns:
-        np.ndarray: Indices of local maxima rows.
+        np.ndarray[Any, Any]: Indices of local maxima rows.
 
     """
     row_sums = np.sum(denoised_time_lag, axis=1)
@@ -37,12 +36,14 @@ def local_maxima_rows(denoised_time_lag: np.ndarray) -> np.ndarray:
     return local_minima_rows[0]  # type: ignore[no-any-return]
 
 
-def detect_lines(denoised_time_lag: np.ndarray, rows: np.ndarray, min_length_samples: int) -> list[Line]:
+def detect_lines(
+    denoised_time_lag: np.ndarray[Any, Any], rows: np.ndarray[Any, Any], min_length_samples: int
+) -> list[Line]:
     """Detect lines in the time lag matrix. Reduce the threshold until enough lines are found.
 
     Args:
-        denoised_time_lag (np.ndarray): Denoised time-lag similarity matrix.
-        rows (np.ndarray): Candidate row indices.
+        denoised_time_lag (np.ndarray[Any, Any]): Denoised time-lag similarity matrix.
+        rows (np.ndarray[Any, Any]): Candidate row indices.
         min_length_samples (int): Minimum length of a line in samples.
 
     Returns:
@@ -61,13 +62,13 @@ def detect_lines(denoised_time_lag: np.ndarray, rows: np.ndarray, min_length_sam
 
 
 def detect_lines_helper(
-    denoised_time_lag: np.ndarray, rows: np.ndarray, threshold: float, min_length_samples: int
+    denoised_time_lag: np.ndarray[Any, Any], rows: np.ndarray[Any, Any], threshold: float, min_length_samples: int
 ) -> list[Line]:
     """Detect lines where at least min_length_samples are above threshold.
 
     Args:
-        denoised_time_lag (np.ndarray): Denoised time-lag similarity matrix.
-        rows (np.ndarray): Candidate row indices.
+        denoised_time_lag (np.ndarray[Any, Any]): Denoised time-lag similarity matrix.
+        rows (np.ndarray[Any, Any]): Candidate row indices.
         threshold (float): Threshold for line detection.
         min_length_samples (int): Minimum length of a line in samples.
 
@@ -166,7 +167,9 @@ def draw_lines(num_samples: int, sample_rate: int, lines: list[Line]) -> None:
     plt.show()
 
 
-def create_chroma(input_file: str, n_fft: int = N_FFT) -> tuple[np.ndarray, np.ndarray, int, float]:
+def create_chroma(
+    input_file: str, n_fft: int = N_FFT
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], Union[int, float], float]:
     """Generate the notes present in a song.
 
     Args:
@@ -175,8 +178,8 @@ def create_chroma(input_file: str, n_fft: int = N_FFT) -> tuple[np.ndarray, np.n
 
     Returns:
         tuple: (chroma, song wav data, sample rate, song length in seconds)
-            chroma (np.ndarray): 12 x n chroma matrix.
-            song wav data (np.ndarray): Audio waveform data.
+            chroma (np.ndarray[Any, Any]): 12 x n chroma matrix.
+            song wav data (np.ndarray[Any, Any]): Audio waveform data.
             sample rate (int): Sample rate of the audio.
             song length in seconds (float): Duration of the song in seconds.
 
@@ -189,19 +192,18 @@ def create_chroma(input_file: str, n_fft: int = N_FFT) -> tuple[np.ndarray, np.n
     return chroma, y, sr, song_length_sec
 
 
-def find_chorus(chroma: np.ndarray, sr: int, song_length_sec: float, clip_length: float) -> Optional[float]:
+def find_chorus(input_file: str, clip_length: float) -> Optional[float]:
     """Find the most repeated chorus.
 
     Args:
-        chroma (np.ndarray): 12 x n frequency chromogram.
-        sr (int): Sample rate of the song, usually 22050.
-        song_length_sec (float): Length in seconds of the song.
+        input_file (str): Path to the input audio file.
         clip_length (float): Minimum length in seconds for the chorus (at least 10-15s).
 
     Returns:
         Optional[float]: Time in seconds of the start of the best chorus, or None if not found.
 
     """
+    chroma, song_wav_data, sr, song_length_sec = create_chroma(input_file)
     num_samples = chroma.shape[1]
 
     time_time_similarity = TimeTimeSimilarityMatrix(chroma, sr)
@@ -221,27 +223,3 @@ def find_chorus(chroma: np.ndarray, sr: int, song_length_sec: float, clip_length
     line_scores = count_overlapping_lines(lines, int(OVERLAP_PERCENT_MARGIN * clip_length_samples), clip_length_samples)
     best_chorus = best_segment(line_scores)
     return best_chorus.start / chroma_sr
-
-
-def find_and_output_chorus(input_file: str, output_file: Optional[str], clip_length: float = 15) -> Optional[float]:
-    """Find the most repeated chorus from input_file and output to output file.
-
-    Args:
-        input_file (str): Path to the input audio file.
-        output_file (Optional[str]): Path to the output file (wav only). None means don't write anything.
-        clip_length (float, optional): Minimum length in seconds of the chorus. Defaults to 15.
-
-    Returns:
-        Optional[float]: Time in seconds of the start of the best chorus, or None if not found.
-
-    """
-    chroma, song_wav_data, sr, song_length_sec = create_chroma(input_file)
-    chorus_start = find_chorus(chroma, sr, song_length_sec, clip_length)
-    if chorus_start is None:
-        return None
-
-    if output_file is not None:
-        chorus_wave_data = song_wav_data[int(chorus_start * sr) : int((chorus_start + clip_length) * sr)]
-        sf.write(output_file, chorus_wave_data, sr)
-
-    return chorus_start
