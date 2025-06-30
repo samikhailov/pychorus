@@ -3,7 +3,7 @@ name = "pychorus"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.9.23"
+requires-python = ">=3.9.0"
 dependencies = [
     "librosa>=0.11.0",
     "matplotlib>=3.9.4",
@@ -14,6 +14,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy>=1.16.1",
     "ruff>=0.12.1",
 ]
 
@@ -36,6 +37,10 @@ exclude = [
     "tests/*",
 ]
 
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
 quote-style = "double"
@@ -48,3 +53,19 @@ skip-magic-trailing-comma = false
 
 # Like Black, automatically detect the appropriate line ending.
 line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.9"
+exclude = [".venv"]
+disallow_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+strict_optional = true
+ignore_missing_imports = true
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+disallow_any_generics = true
+no_implicit_reexport = true

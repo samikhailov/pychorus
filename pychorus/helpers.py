@@ -1,3 +1,5 @@
+from typing import Any, Optional, Union
+
 import librosa
 import numpy as np
 import scipy.signal
@@ -14,18 +16,23 @@ from pychorus.constants import (
 from pychorus.similarity_matrix import Line, TimeLagSimilarityMatrix, TimeTimeSimilarityMatrix
 
 
-def local_maxima_rows(denoised_time_lag):
+def local_maxima_rows(denoised_time_lag: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Find rows whose normalized sum is a local maxima"""
     row_sums = np.sum(denoised_time_lag, axis=1)
     divisor = np.arange(row_sums.shape[0], 0, -1)
     normalized_rows = row_sums / divisor
     local_minima_rows = scipy.signal.argrelextrema(normalized_rows, np.greater)
-    return local_minima_rows[0]
+    return local_minima_rows[0]  # type: ignore[no-any-return]
 
 
-def detect_lines(denoised_time_lag, rows, min_length_samples):
+def detect_lines(
+    denoised_time_lag: np.ndarray[Any, Any],
+    rows: np.ndarray[Any, Any],
+    min_length_samples: int,
+) -> list[Line]:
     """Detect lines in the time lag matrix. Reduce the threshold until we find enough lines"""
     cur_threshold = LINE_THRESHOLD
+    line_segments: list[Line] = []
     for _ in range(NUM_ITERATIONS):
         line_segments = detect_lines_helper(denoised_time_lag, rows, cur_threshold, min_length_samples)
         if len(line_segments) >= MIN_LINES:
@@ -35,30 +42,30 @@ def detect_lines(denoised_time_lag, rows, min_length_samples):
     return line_segments
 
 
-def detect_lines_helper(denoised_time_lag, rows, threshold, min_length_samples):
+def detect_lines_helper(
+    denoised_time_lag: np.ndarray[Any, Any], rows: np.ndarray[Any, Any], threshold: float, min_length_samples: int
+) -> list[Line]:
     """Detect lines where at least min_length_samples are above threshold"""
     num_samples = denoised_time_lag.shape[0]
-    line_segments = []
-    cur_segment_start = None
+    line_segments: list[Line] = []
+    cur_segment_start: Optional[int] = None
     for row in rows:
-        if row < min_length_samples:
+        if int(row) < min_length_samples:
             continue
-        for col in range(row, num_samples):
-            if denoised_time_lag[row, col] > threshold:
+        for col in range(int(row), num_samples):
+            if denoised_time_lag[int(row), col] > threshold:
                 if cur_segment_start is None:
                     cur_segment_start = col
             else:
                 if (cur_segment_start is not None) and (col - cur_segment_start) > min_length_samples:
-                    line_segments.append(Line(cur_segment_start, col, row))
+                    line_segments.append(Line(cur_segment_start, col, int(row)))
                 cur_segment_start = None
     return line_segments
 
 
-def count_overlapping_lines(lines, margin, min_length_samples):
+def count_overlapping_lines(lines: list[Line], margin: int, min_length_samples: int) -> dict[Line, int]:
     """Look at all pairs of lines and see which ones overlap vertically and diagonally"""
-    line_scores = {}
-    for line in lines:
-        line_scores[line] = 0
+    line_scores: dict[Line, int] = dict.fromkeys(lines, 0)
 
     # Iterate over all pairs of lines
     for line_1 in lines:
@@ -82,26 +89,22 @@ def count_overlapping_lines(lines, margin, min_length_samples):
     return line_scores
 
 
-def best_segment(line_scores):
+def best_segment(line_scores: dict[Line, int]) -> Line:
     """Return the best line, sorted first by chorus matches, then by duration"""
-    lines_to_sort = []
-    for line in line_scores:
-        lines_to_sort.append((line, line_scores[line], line.end - line.start))
-
+    lines_to_sort = [(line, score, line.end - line.start) for line, score in line_scores.items()]
     lines_to_sort.sort(key=lambda x: (x[1], x[2]), reverse=True)
-    best_tuple = lines_to_sort[0]
-    return best_tuple[0]
+    return lines_to_sort[0][0]
 
 
-def draw_lines(num_samples, sample_rate, lines) -> None:
+def draw_lines(num_samples: int, sample_rate: int, lines: list[Line]) -> None:
     """Debugging function to draw detected lines in black"""
     lines_matrix = np.zeros((num_samples, num_samples))
     for line in lines:
         lines_matrix[line.lag : line.lag + 4, line.start : line.end + 1] = 1
 
     # Import here since this function is only for debugging
-    import librosa.display
-    import matplotlib.pyplot as plt
+    import librosa.display  # noqa: PLC0415
+    import matplotlib.pyplot as plt  # noqa: PLC0415
 
     librosa.display.specshow(lines_matrix, y_axis="time", x_axis="time", sr=sample_rate / (N_FFT / 2048))
     plt.colorbar()
@@ -109,7 +112,9 @@ def draw_lines(num_samples, sample_rate, lines) -> None:
     plt.show()
 
 
-def create_chroma(input_file, n_fft=N_FFT):
+def create_chroma(
+    input_file: str, n_fft: int = N_FFT
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], Union[int, float], float]:
     """
     Generate the notes present in a song
 
@@ -118,13 +123,13 @@ def create_chroma(input_file, n_fft=N_FFT):
     """
     y, sr = librosa.load(input_file)
     song_length_sec = y.shape[0] / float(sr)
-    S = np.abs(librosa.stft(y, n_fft=n_fft)) ** 2
-    chroma = librosa.feature.chroma_stft(S=S, sr=sr)
+    s = np.abs(librosa.stft(y, n_fft=n_fft)) ** 2
+    chroma = librosa.feature.chroma_stft(S=s, sr=sr)
 
     return chroma, y, sr, song_length_sec
 
 
-def find_chorus(chroma, sr, song_length_sec, clip_length):
+def find_chorus(chroma: np.ndarray[Any, Any], sr: float, song_length_sec: float, clip_length: float) -> Optional[float]:
     """
     Find the most repeated chorus
 
@@ -147,17 +152,17 @@ def find_chorus(chroma, sr, song_length_sec, clip_length):
     time_lag_similarity.denoise(time_time_similarity.matrix, smoothing_size_samples)
 
     # Detect lines in the image
-    clip_length_samples = clip_length * chroma_sr
+    clip_length_samples = int(clip_length * chroma_sr)
     candidate_rows = local_maxima_rows(time_lag_similarity.matrix)
     lines = detect_lines(time_lag_similarity.matrix, candidate_rows, clip_length_samples)
-    if len(lines) == 0:
+    if not lines:
         return None
-    line_scores = count_overlapping_lines(lines, OVERLAP_PERCENT_MARGIN * clip_length_samples, clip_length_samples)
+    line_scores = count_overlapping_lines(lines, int(OVERLAP_PERCENT_MARGIN * clip_length_samples), clip_length_samples)
     best_chorus = best_segment(line_scores)
     return best_chorus.start / chroma_sr
 
 
-def find_and_output_chorus(input_file, output_file, clip_length=15):
+def find_and_output_chorus(input_file: str, output_file: Optional[str], clip_length: float = 15) -> Optional[float]:
     """
     Finds the most repeated chorus from input_file and outputs to output file.
 

@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from math import sqrt
+from typing import Any
 
 import numpy as np
 import scipy.signal
@@ -7,17 +8,15 @@ import scipy.signal
 from pychorus.constants import N_FFT
 
 
-class SimilarityMatrix:
+class SimilarityMatrix(metaclass=ABCMeta):
     """Abstract class for our time-time and time-lag similarity matrices"""
 
-    __metaclass__ = ABCMeta
-
-    def __init__(self, chroma: np.array, sample_rate: float) -> None:
+    def __init__(self, chroma: np.ndarray[Any, Any], sample_rate: float) -> None:
         self.sample_rate = sample_rate  # sample_rate of the audio, almost always 22050
         self.matrix = self.compute_similarity_matrix(chroma)
 
     @abstractmethod
-    def compute_similarity_matrix(self, chroma):
+    def compute_similarity_matrix(self, chroma: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         The specific type of similarity matrix we want to compute
 
@@ -26,8 +25,8 @@ class SimilarityMatrix:
         """
 
     def display(self) -> None:
-        import librosa.display
-        import matplotlib.pyplot as plt
+        import librosa.display  # noqa: PLC0415
+        import matplotlib.pyplot as plt  # noqa: PLC0415
 
         librosa.display.specshow(self.matrix, y_axis="time", x_axis="time", sr=self.sample_rate / (N_FFT / 2048))
         plt.colorbar()
@@ -41,20 +40,20 @@ class TimeTimeSimilarityMatrix(SimilarityMatrix):
     are the song frames x and y
     """
 
-    def compute_similarity_matrix(self, chroma):
+    def compute_similarity_matrix(self, chroma: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Optimized way to compute the time-time similarity matrix with numpy broadcasting"""
         broadcast_x = np.expand_dims(chroma, 2)  # (12 x n x 1)
         broadcast_y = np.swapaxes(np.expand_dims(chroma, 2), 1, 2)  # (12 x 1 x n)
-        return 1 - (np.linalg.norm((broadcast_x - broadcast_y), axis=0) / sqrt(12))
+        return 1 - (np.linalg.norm((broadcast_x - broadcast_y), axis=0) / sqrt(12))  # type: ignore[no-any-return]
 
 
-class TimeLagSimilarityMatrix(SimilarityMatrix):
+class TimeLagSimilarityMatrix(SimilarityMatrix, metaclass=ABCMeta):
     """
     Class to hold the time lag similarity matrix where sample (x,y) represents the
     similarity of song frames x and (x-y)
     """
 
-    def compute_similarity_matrix(self, chroma):
+    def compute_similarity_matrix(self, chroma: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Optimized way to compute the time-lag similarity matrix"""
         num_samples = chroma.shape[1]
         broadcast_x = np.repeat(np.expand_dims(chroma, 2), num_samples + 1, axis=2)
@@ -66,7 +65,7 @@ class TimeLagSimilarityMatrix(SimilarityMatrix):
         time_lag_similarity = np.rot90(time_lag_similarity, k=1, axes=(0, 1))
         return time_lag_similarity[:num_samples, :num_samples]
 
-    def denoise(self, time_time_matrix, smoothing_size) -> None:
+    def denoise(self, time_time_matrix: np.ndarray[Any, Any], smoothing_size: int) -> None:
         """
         Emphasize horizontal lines by suppressing vertical and diagonal lines. We look at 6
         moving averages (left, right, up, down, upper diagonal, lower diagonal). For lines, the
@@ -122,7 +121,7 @@ class TimeLagSimilarityMatrix(SimilarityMatrix):
 
 
 class Line:
-    def __init__(self, start, end, lag) -> None:
+    def __init__(self, start: int, end: int, lag: int) -> None:
         self.start = start
         self.end = end
         self.lag = lag
