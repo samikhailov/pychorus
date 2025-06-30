@@ -1,6 +1,7 @@
+"""Similarity matrix classes and utilities for pychorus."""
+
 from abc import ABCMeta, abstractmethod
 from math import sqrt
-from typing import Any
 
 import numpy as np
 import scipy.signal
@@ -9,22 +10,39 @@ from pychorus.constants import N_FFT
 
 
 class SimilarityMatrix(metaclass=ABCMeta):
-    """Abstract class for our time-time and time-lag similarity matrices"""
+    """Abstract class for time-time and time-lag similarity matrices.
 
-    def __init__(self, chroma: np.ndarray[Any, Any], sample_rate: float) -> None:
-        self.sample_rate = sample_rate  # sample_rate of the audio, almost always 22050
+    Args:
+        chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+        sample_rate (float): Sample rate of the audio, almost always 22050.
+
+    """
+
+    def __init__(self, chroma: np.ndarray, sample_rate: float) -> None:
+        """Initialize the similarity matrix.
+
+        Args:
+            chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+            sample_rate (float): Sample rate of the audio, almost always 22050.
+
+        """
+        self.sample_rate = sample_rate
         self.matrix = self.compute_similarity_matrix(chroma)
 
     @abstractmethod
-    def compute_similarity_matrix(self, chroma: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        The specific type of similarity matrix we want to compute
+    def compute_similarity_matrix(self, chroma: np.ndarray) -> np.ndarray:
+        """Compute the specific type of similarity matrix.
 
         Args:
-            chroma: 12 x n numpy array of musical notes present at every time step
+            chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+
+        Returns:
+            np.ndarray: The computed similarity matrix.
+
         """
 
     def display(self) -> None:
+        """Display the similarity matrix using matplotlib and librosa."""
         import librosa.display  # noqa: PLC0415
         import matplotlib.pyplot as plt  # noqa: PLC0415
 
@@ -35,26 +53,41 @@ class SimilarityMatrix(metaclass=ABCMeta):
 
 
 class TimeTimeSimilarityMatrix(SimilarityMatrix):
-    """
-    Class for the time time similarity matrix where sample (x,y) represents how similar
-    are the song frames x and y
+    """Class for the time-time similarity matrix where sample (x, y) represents how similar
+    the song frames x and y are.
+
     """
 
-    def compute_similarity_matrix(self, chroma: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Optimized way to compute the time-time similarity matrix with numpy broadcasting"""
+    def compute_similarity_matrix(self, chroma: np.ndarray) -> np.ndarray:
+        """Compute the time-time similarity matrix using numpy broadcasting.
+
+        Args:
+            chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+
+        Returns:
+            np.ndarray: The computed time-time similarity matrix.
+
+        """
         broadcast_x = np.expand_dims(chroma, 2)  # (12 x n x 1)
         broadcast_y = np.swapaxes(np.expand_dims(chroma, 2), 1, 2)  # (12 x 1 x n)
         return 1 - (np.linalg.norm((broadcast_x - broadcast_y), axis=0) / sqrt(12))  # type: ignore[no-any-return]
 
 
 class TimeLagSimilarityMatrix(SimilarityMatrix, metaclass=ABCMeta):
-    """
-    Class to hold the time lag similarity matrix where sample (x,y) represents the
-    similarity of song frames x and (x-y)
+    """Class to hold the time-lag similarity matrix where sample (x, y) represents
+    the similarity of song frames x and (x-y).
     """
 
-    def compute_similarity_matrix(self, chroma: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Optimized way to compute the time-lag similarity matrix"""
+    def compute_similarity_matrix(self, chroma: np.ndarray) -> np.ndarray:
+        """Compute the time-lag similarity matrix.
+
+        Args:
+            chroma (np.ndarray): 12 x n numpy array of musical notes present at every time step.
+
+        Returns:
+            np.ndarray: The computed time-lag similarity matrix.
+
+        """
         num_samples = chroma.shape[1]
         broadcast_x = np.repeat(np.expand_dims(chroma, 2), num_samples + 1, axis=2)
 
@@ -65,15 +98,16 @@ class TimeLagSimilarityMatrix(SimilarityMatrix, metaclass=ABCMeta):
         time_lag_similarity = np.rot90(time_lag_similarity, k=1, axes=(0, 1))
         return time_lag_similarity[:num_samples, :num_samples]
 
-    def denoise(self, time_time_matrix: np.ndarray[Any, Any], smoothing_size: int) -> None:
-        """
-        Emphasize horizontal lines by suppressing vertical and diagonal lines. We look at 6
-        moving averages (left, right, up, down, upper diagonal, lower diagonal). For lines, the
-        left or right average should be much greater than the other ones.
+    def denoise(self, time_time_matrix: np.ndarray, smoothing_size: int) -> None:
+        """Emphasize horizontal lines by suppressing vertical and diagonal lines.
+
+        Looks at 6 moving averages (left, right, up, down, upper diagonal, lower diagonal).
+        For lines, the left or right average should be much greater than the other ones.
 
         Args:
-            time_time_matrix: n x n numpy array to quickly compute diagonal averages
-            smoothing_size: smoothing size in samples (usually 1-2 sec is good)
+            time_time_matrix (np.ndarray): n x n numpy array to quickly compute diagonal averages.
+            smoothing_size (int): Smoothing size in samples (usually 1-2 sec is good).
+
         """
         n = self.matrix.shape[0]
 
@@ -121,10 +155,33 @@ class TimeLagSimilarityMatrix(SimilarityMatrix, metaclass=ABCMeta):
 
 
 class Line:
+    """Represents a detected line segment in the similarity matrix.
+
+    Args:
+        start (int): Start index of the line.
+        end (int): End index of the line.
+        lag (int): Lag value of the line.
+
+    """
+
     def __init__(self, start: int, end: int, lag: int) -> None:
+        """Initialize the line segment in the similarity matrix.
+
+        Args:
+            start (int): Start index of the line.
+            end (int): End index of the line.
+            lag (int): Lag value of the line.
+
+        """
         self.start = start
         self.end = end
         self.lag = lag
 
     def __repr__(self) -> str:
+        """Return a string representation of the Line object.
+
+        Returns:
+            str: String representation.
+
+        """
         return f"Line ({self.start} {self.end} {self.lag})"

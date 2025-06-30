@@ -24,7 +24,9 @@ line-length = 120
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "D", # pydocstyle
+    "D203",  # incorrect-blank-line-before-class
+    "D205", # missing-blank-line-after-summary
+    "D213", # multi-line-summary-second-line
     "ANN002", # missing-type-args
     "ANN003", # missing-type-kwargs
     "COM812", # missing-trailing-comma, resolving conflicts when it used with the formatter

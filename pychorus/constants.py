@@ -1,3 +1,5 @@
+"""Constants for pychorus chorus detection algorithms."""
+
 # Denoising size in seconds
 SMOOTHING_SIZE_SEC: float = 2.5
 

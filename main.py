@@ -1,9 +1,12 @@
+"""Main entry point for the pychorus command-line tool."""
+
 import argparse
 
 from pychorus.helpers import find_and_output_chorus
 
 
 def main(args: argparse.Namespace) -> None:
+    """Run chorus detection and output using parsed command-line arguments."""
     find_and_output_chorus(args.input_file, args.output_file, args.min_clip_length)
 
 
