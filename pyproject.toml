@@ -1,0 +1,50 @@
+[project]
+name = "pychorus"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9.23"
+dependencies = [
+    "librosa>=0.11.0",
+    "matplotlib>=3.9.4",
+    "numpy>=2.0.2",
+    "scipy>=1.13.1",
+    "soundfile>=0.13.1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.1",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D", # pydocstyle
+    "ANN002", # missing-type-args
+    "ANN003", # missing-type-kwargs
+    "COM812", # missing-trailing-comma, resolving conflicts when it used with the formatter
+]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+exclude = [
+    "tests/*",
+]
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
